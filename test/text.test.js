@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { toBase64url, fromBase64url, toBase77, fromBase77 } from "../src/text.js";
+import { toBase64url, fromBase64url, toBase77, fromBase77, hasNativeBase64 } from "../src/text.js";
 
 // Browsers without Uint8Array.toBase64 (Safari < 18.2, Firefox < 133, Chrome < 140)
 // use the JS fallback; force it here so it is covered on every run.
@@ -10,7 +10,7 @@ test("base64url JS fallback matches native, all lengths 0–300", () => {
     const s = toBase64url(b, false);
     assert.equal(s, Buffer.from(b).toString("base64url"));
     assert.deepEqual(fromBase64url(s, false), b);
-    assert.deepEqual(fromBase64url(s, true), b);
+    assert.deepEqual(fromBase64url(s), b); // default path: native if this runtime has it
   }
 });
 
