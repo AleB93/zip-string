@@ -1,0 +1,76 @@
+{
+  "name": "zip-string",
+  "version": "0.1.0",
+  "description": "Pack JSON data into the shortest URL-safe string: columnar binary encoding + deflate + a URL-fragment alphabet. Share big datasets in a link.",
+  "keywords": [
+    "url",
+    "compression",
+    "query-string",
+    "hash",
+    "fragment",
+    "json",
+    "share",
+    "permalink",
+    "state",
+    "columnar",
+    "deflate",
+    "base64url",
+    "encode",
+    "serialize"
+  ],
+  "homepage": "https://github.com/AleB93/zip-string#readme",
+  "bugs": {
+    "url": "https://github.com/AleB93/zip-string/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AleB93/zip-string.git"
+  },
+  "license": "MIT",
+  "author": "AleB93",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./src/index.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./types/index.d.ts",
+        "default": "./src/index.js"
+      },
+      "require": {
+        "types": "./types/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "types",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:browsers": "node test/browsers.mjs",
+    "bench": "node bench/perf.mjs",
+    "build": "esbuild src/index.js --bundle --format=cjs --platform=neutral --external:fflate --outfile=dist/index.cjs --log-level=warning",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsoncrush": "^1.1.8",
+    "lz-string": "^1.5.0",
+    "lzma": "^2.3.2",
+    "playwright-core": "^1.65.1"
+  }
+}

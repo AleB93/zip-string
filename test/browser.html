@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>zip-string browser harness</title>
+<script type="importmap">{ "imports": { "fflate": "../node_modules/fflate/esm/browser.js" } }</script>
+</head>
+<body>
+<pre id="status">loading…</pre>
+<script type="module">
+// Exposes the library to the Playwright runner (test/browsers.mjs).
+import { encode, decode, createDictionary } from "../src/index.js";
+import { setCodegen } from "../src/binary.js";
+import { gen, reseed } from "./gen.js";
+import { makeDatasets } from "../bench/data.js";
+
+window.zipString = { encode, decode, createDictionary, setCodegen, gen, reseed, makeDatasets };
+window.features = {
+  userAgent: navigator.userAgent,
+  nativeBase64: typeof Uint8Array.prototype.toBase64 === "function",
+  isWellFormed: typeof String.prototype.isWellFormed === "function",
+  compressionStream: typeof CompressionStream === "function",
+  newFunction: (() => { try { return new Function("return 1")() === 1; } catch { return false; } })(),
+  timerResolutionMs: (() => { let a = performance.now(), b; while ((b = performance.now()) === a); return +(b - a).toFixed(4); })(),
+};
+document.getElementById("status").textContent = "ready";
+window.ready = true;
+</script>
+</body>
+</html>
