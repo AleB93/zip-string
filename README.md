@@ -81,6 +81,23 @@ const back2 = await decrypt(link2, { key });
 
 Send the link and the password or key through **different channels** (for example, the link by email and the password by chat or in person). Anyone who gets both can read the data; anyone with only the link learns nothing but its approximate size. See [Security](#security).
 
+### Using on a server
+
+`encrypt` and `decrypt` work the same in Node ≥ 20. On a server, prefer a key over passwords: a key-mode decrypt costs microseconds, while every password attempt costs about 50–80 ms of CPU.
+
+```js
+import { encrypt, decrypt } from "zip-string";
+const key = process.env.ZIP_STRING_KEY;               // from generateKey(), kept secret
+
+const token = await encrypt(data, { key, target: "query" });   // safe in ?d=…
+const back = await decrypt(req.query.d, { key });      // throws on any tampering → reply 400
+```
+
+- **Key-only servers** refuse password links immediately ("needs a password"), so nobody can make them run key derivation.
+- **Servers that accept passwords** should set `maxIterations` to the value they encrypt with, for example `decrypt(t, { password, maxIterations: 600_000 })`. Links asking for more are refused before any work. Rate-limit password attempts as you would a login.
+- Password derivation runs on Node's thread pool, so it doesn't block the event loop, but it does use a CPU core.
+- Don't encrypt attacker-supplied text together with a secret in the same token (see the compression note in [Security](#security)).
+
 ## API
 
 ### `encode(data, options?) → string`
@@ -113,11 +130,13 @@ Compresses, then encrypts with AES-256-GCM. Pass exactly one of:
 | `password` | At least 8 characters. The key is derived with PBKDF2-SHA256 (600,000 iterations by default) and a random salt. |
 | `key` | 32 bytes: a string from `generateKey()`, a `Uint8Array`, or an AES-GCM `CryptoKey`. |
 
-Also accepts `iterations` (password only, 100,000 to 10,000,000) and every `encode` option. Adds about 40 characters with a key and 60 with a password.
+Also accepts `iterations` (password only, 100,000 to 2,000,000) and every `encode` option. Adds about 40 characters with a key and 60 with a password.
 
 ### `decrypt(str, options) → Promise<value>`
 
 Options: `password` or `key`, plus `dictionary` if one was used. Rejects with "cannot decrypt" if the secret is wrong or the string was modified in any way.
+
+`maxIterations` (default 2,000,000) refuses password links that ask for more key-derivation work, before doing any. Passing only `key` refuses password links outright, also without any work. See [Using on a server](#using-on-a-server).
 
 ### `generateKey() → string`
 
@@ -166,7 +185,7 @@ Encryption uses the platform's Web Crypto (browsers, and Node ≥ 20). There's n
 - **Confidentiality and integrity:** AES-256-GCM. Changing, removing or adding a single character makes decryption fail instead of returning altered data. The format flags and key-derivation settings are authenticated too.
 - **Passwords:** PBKDF2-SHA256 with a random 16-byte salt for every link and 600,000 iterations (the OWASP recommendation). That takes about 50–80 ms on a laptop, which makes guessing millions of passwords slow. A weak password is still guessable, so use a long passphrase or `generateKey()`.
 - **Fresh randomness:** every call uses a new random IV (and salt), so encrypting the same data twice gives two different strings.
-- **Malicious links:** `decrypt` refuses links that request more than 10 million iterations, so a crafted link can't freeze the page.
+- **Malicious links:** `decrypt` refuses links that request more than 2 million iterations (or your `maxIterations`), so a crafted link can't freeze a page or tie up a server.
 - **What is not hidden:** the link's length, which reveals the approximate size of the data. Data is compressed before it's encrypted, so if an attacker can mix their own text into data alongside a secret and watch the resulting length many times, they could learn something about the secret (the CRIME/BREACH technique). That doesn't apply to links you create from your own data.
 - **Where secrets live:** zip-string never stores or sends a key or password. If you put the key in the same link (for example `#data.key`), anyone with the link can read it. That only protects against servers and logs that never see the fragment, which is the model Excalidraw and Firefox Send use.
 - **Browser requirement:** Web Crypto only exists in secure contexts (`https://` or `localhost`). Elsewhere, `encrypt` and `decrypt` throw a clear error.

@@ -73,11 +73,18 @@ export type Secret =
   | { key: string | Uint8Array | CryptoKeyType; password?: never };
 
 export type EncryptOptions = Secret & EncodeOptions & {
-  /** PBKDF2-SHA256 iterations for `password` (100,000–10,000,000). Default `600000`. */
+  /** PBKDF2-SHA256 iterations for `password` (100,000–2,000,000). Default `600000`. */
   iterations?: number;
 };
 
-export type DecryptOptions = Secret & DecodeOptions;
+export type DecryptOptions = Secret & DecodeOptions & {
+  /**
+   * Refuse password links that ask for more PBKDF2 iterations than this, before doing
+   * any work (1,000–2,000,000). Default `2000000`. Servers: set it to what you encrypt with.
+   * Passing only `key` refuses password links outright, also without any work.
+   */
+  maxIterations?: number;
+};
 
 /**
  * Compress and encrypt with AES-256-GCM (Web Crypto). The result is a URL-safe string

@@ -139,7 +139,7 @@ export function isEncrypted(str) {
  * @param {object} o
  * @param {string} [o.password] at least 8 characters; key derived with PBKDF2-SHA256
  * @param {string|Uint8Array|CryptoKey} [o.key] from generateKey() (32 random bytes)
- * @param {number} [o.iterations=600000] PBKDF2 iterations (password only)
+ * @param {number} [o.iterations=600000] PBKDF2 iterations (password only, 100,000–2,000,000)
  * @returns {Promise<string>}
  */
 export async function encrypt(data, { password, key, iterations = DEFAULT_ITERATIONS, target = "hash", dictionary, level, native = true } = {}) {
@@ -191,9 +191,17 @@ export async function encrypt(data, { password, key, iterations = DEFAULT_ITERAT
  * @param {string} [o.password]
  * @param {string|Uint8Array|CryptoKey} [o.key]
  * @param {Uint8Array} [o.dictionary] required if one was used to encrypt
+ * @param {number} [o.maxIterations=2000000] refuse password links asking for more PBKDF2 work
+ *   (servers: set this to what you encrypt with)
  * @returns {Promise<any>}
+ *
+ * Passing only `key` refuses password-protected strings before any key-derivation
+ * work, so a key-only server can't be made to spend CPU on password links.
  */
-export async function decrypt(str, { password, key, dictionary, native = true } = {}) {
+export async function decrypt(str, { password, key, dictionary, native = true, maxIterations = MAX_ITERATIONS } = {}) {
+  if (!Number.isInteger(maxIterations) || maxIterations < 1000 || maxIterations > MAX_ITERATIONS) {
+    throw new RangeError(`zip-string: maxIterations must be an integer between 1000 and ${MAX_ITERATIONS}`);
+  }
   const flags = header(str);
   if (!(flags & F_ENC)) throw new Error("zip-string: this string is not encrypted — use decode()");
   const head = str[0];
@@ -205,7 +213,10 @@ export async function decrypt(str, { password, key, dictionary, native = true } 
     prefixLen = 1 + 4 + SALT_BYTES + IV_BYTES;
     if (bytes.length < prefixLen + TAG_BYTES) throw new Error("zip-string: truncated data");
     const iterations = new DataView(bytes.buffer, bytes.byteOffset).getUint32(1);
-    if (iterations < 1000 || iterations > MAX_ITERATIONS) throw new Error("zip-string: refusing unsafe key-derivation settings in this link");
+    if (iterations < 1000) throw new Error("zip-string: refusing unsafe key-derivation settings in this link");
+    if (iterations > maxIterations) {
+      throw new Error(`zip-string: refusing this link: it requires ${iterations} key-derivation iterations (maxIterations is ${maxIterations})`);
+    }
     cryptoKey = await passwordKey(String(password), bytes.slice(5, 5 + SALT_BYTES), iterations);
   } else if (mode === MODE_KEY) {
     if (key == null) throw new Error("zip-string: this string needs a key");

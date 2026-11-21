@@ -80,7 +80,28 @@ test("a crafted link cannot request absurd key-derivation work", async () => {
   const s = await encrypt(data, { password: PW, ...FAST });
   const b = fromBase77(s.slice(1));
   new DataView(b.buffer, b.byteOffset).setUint32(1, 0xffffffff);
+  await assert.rejects(decrypt(s[0] + toBase77(b), { password: PW }), /refusing this link/);
+  new DataView(b.buffer, b.byteOffset).setUint32(1, 10);
   await assert.rejects(decrypt(s[0] + toBase77(b), { password: PW }), /unsafe key-derivation/);
+});
+
+test("a key-only decrypt refuses password links without any key-derivation work", async () => {
+  const s = await encrypt(data, { password: PW }); // 600k iterations: tens of ms if derived
+  const t = performance.now();
+  await assert.rejects(decrypt(s, { key: generateKey() }), /needs a password/);
+  assert.ok(performance.now() - t < 15, "rejected before PBKDF2");
+});
+
+test("maxIterations refuses links asking for more work, before doing it", async () => {
+  const s = await encrypt(data, { password: PW, iterations: 1_000_000 });
+  const t = performance.now();
+  await assert.rejects(decrypt(s, { password: PW, maxIterations: 600_000 }), /refusing this link: it requires 1000000/);
+  assert.ok(performance.now() - t < 15, "rejected before PBKDF2");
+  assert.deepEqual(await decrypt(s, { password: PW, maxIterations: 1_000_000 }), data);
+  for (const bad of [0, 999, 2_000_001, 1.5, "600000"]) {
+    await assert.rejects(decrypt(s, { password: PW, maxIterations: bad }), RangeError);
+  }
+  await assert.rejects(encrypt(data, { password: PW, iterations: 2_000_001 }), /iterations/);
 });
 
 test("same input encrypts differently every time (random salt and IV)", async () => {

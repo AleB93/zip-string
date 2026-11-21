@@ -7,7 +7,7 @@ export const MODE_KEY = 1, MODE_PASSWORD = 2;
 export const KEY_BYTES = 32, SALT_BYTES = 16, IV_BYTES = 12, TAG_BYTES = 16;
 export const DEFAULT_ITERATIONS = 600_000; // OWASP 2023 recommendation for PBKDF2-HMAC-SHA256
 export const MIN_ITERATIONS = 100_000;
-export const MAX_ITERATIONS = 10_000_000; // decrypt refuses more: a crafted link can't hang the page
+export const MAX_ITERATIONS = 2_000_000; // hard cap (3× the default): a crafted link can't hang a page or a server
 export const MIN_PASSWORD_LENGTH = 8;
 
 function webcrypto() {
