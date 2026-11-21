@@ -27,6 +27,17 @@ export function toBase64url(bytes, native = hasNativeBase64) {
 }
 
 export function fromBase64url(s, native = hasNativeBase64) {
+  // Strict: only the canonical encoding of some bytes is accepted. A length of
+  // 4k+1 can't come from any byte string, and the unused low bits of the last
+  // char must be zero — otherwise several strings would decode to the same bytes.
+  const rem = s.length % 4;
+  if (rem === 1) throw new Error("zip-string: invalid data length");
+  if (rem) {
+    const c = s.charCodeAt(s.length - 1);
+    const v = c < 128 ? B64_LOOKUP[c] : -1;
+    if (v < 0) throw new Error("zip-string: invalid character in data");
+    if (v & (rem === 2 ? 15 : 3)) throw new Error("zip-string: invalid data (non-canonical ending)");
+  }
   if (native) return Uint8Array.fromBase64(s, { alphabet: "base64url", lastChunkHandling: "loose" });
   const out = new Uint8Array((s.length * 3) >> 2);
   let buf = 0, bits = 0, o = 0;

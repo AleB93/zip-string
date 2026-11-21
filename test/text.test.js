@@ -41,3 +41,22 @@ test("base77: out-of-range (non-canonical) strings are rejected", () => {
     assert.deepEqual(fromBase77(toBase77(b)), b);
   }
 });
+
+test("base64url: non-canonical strings are rejected on both paths", () => {
+  for (const native of [false, hasNativeBase64].filter((v, i, a) => a.indexOf(v) === i)) {
+    for (let n = 1; n <= 40; n++) {
+      const b = Uint8Array.from({ length: n }, (_, i) => (i * 37 + n) & 255);
+      const s = toBase64url(b, false);
+      assert.deepEqual(fromBase64url(s, native), b);
+      // one extra character: length 4k+1, or 6 bits that form no byte
+      if ((s.length + 1) % 4 === 1) assert.throws(() => fromBase64url(s + "A", native), /length/, `n=${n} +A`);
+      // flip an unused low bit of the final character
+      if (s.length % 4) {
+        const last = s.charCodeAt(s.length - 1);
+        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        const t = s.slice(0, -1) + alphabet[alphabet.indexOf(String.fromCharCode(last)) | 1];
+        if (t !== s) assert.throws(() => fromBase64url(t, native), /non-canonical/, `n=${n} low bit`);
+      }
+    }
+  }
+});
