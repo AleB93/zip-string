@@ -1,5 +1,5 @@
 {
-  "name": "zip-string",
+  "name": "@ab19993/zip-string",
   "version": "0.1.0",
   "description": "Pack JSON data into the shortest URL-safe string: columnar binary encoding + deflate + a URL-fragment alphabet. Share big datasets in a link.",
   "keywords": [
@@ -74,5 +74,8 @@
     "lz-string": "^1.5.0",
     "lzma": "^2.3.2",
     "playwright-core": "^1.65.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

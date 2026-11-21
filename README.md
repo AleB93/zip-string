@@ -3,7 +3,7 @@
 **Pack JSON data into the shortest URL-safe string.** Share a 5,000-row table in a 28 KB link, or app state in under 100 characters, and render it straight from the URL with no server.
 
 ```js
-import { encode, decode } from "zip-string";
+import { encode, decode } from "@ab19993/zip-string";
 
 const url = `https://example.com/view#${encode(rows)}`;   // 392 KB of JSON → 28 KB link
 const rows = decode(location.hash.slice(1));               // back, exactly
@@ -20,7 +20,7 @@ const rows = decode(location.hash.slice(1));               // back, exactly
 ## Install
 
 ```sh
-npm install zip-string
+npm install @ab19993/zip-string
 ```
 
 ## Usage
@@ -30,7 +30,7 @@ npm install zip-string
 The fragment never reaches the server, so it isn't limited by server or proxy URL limits (often 8 KB) and isn't logged. Browsers accept fragments in the megabyte range.
 
 ```js
-import { encode, decodeHash } from "zip-string";
+import { encode, decodeHash } from "@ab19993/zip-string";
 
 // create a link
 const link = `${location.origin}/report#${encode(data)}`;
@@ -53,7 +53,7 @@ const data = decode(new URL(url, location.href).searchParams.get("d"));
 For app state, filters and settings, a dictionary built from a sample shrinks URLs by about half. Ship the dictionary with your code; it is never put in the URL.
 
 ```js
-import { encode, decode, createDictionary } from "zip-string";
+import { encode, decode, createDictionary } from "@ab19993/zip-string";
 
 const dict = createDictionary({ view: "dashboard", filters: [{ field: "city", op: "in", value: ["Rome"] }], sort: { by: "price", dir: "desc" } });
 
@@ -66,14 +66,14 @@ The dictionary is a `Uint8Array`. To store it as text, use for example `Buffer.f
 ### Encrypt a link so only the right people can read it
 
 ```js
-import { encrypt, decrypt } from "zip-string";
+import { encrypt, decrypt } from "@ab19993/zip-string";
 
 // with a password
 const link = await encrypt(data, { password: "correct horse battery staple" });
 const back = await decrypt(link, { password: "correct horse battery staple" });
 
 // or with a random key (stronger than any password people can remember)
-import { generateKey } from "zip-string";
+import { generateKey } from "@ab19993/zip-string";
 const key = generateKey();                 // 43 characters, e.g. "q3J…Zk"
 const link2 = await encrypt(data, { key });
 const back2 = await decrypt(link2, { key });
@@ -86,7 +86,7 @@ Send the link and the password or key through **different channels** (for exampl
 `encrypt` and `decrypt` work the same in Node ≥ 20. On a server, prefer a key over passwords: a key-mode decrypt costs microseconds, while every password attempt costs about 50–80 ms of CPU.
 
 ```js
-import { encrypt, decrypt } from "zip-string";
+import { encrypt, decrypt } from "@ab19993/zip-string";
 const key = process.env.ZIP_STRING_KEY;               // from generateKey(), kept secret
 
 const token = await encrypt(data, { key, target: "query" });   // safe in ?d=…
