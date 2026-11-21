@@ -25,7 +25,7 @@ const MAX_INT = 2 ** 52; // keeps zigzag(x) within Number.MAX_SAFE_INTEGER
 const MAX_INTERN = 128; // longer strings are not added to the string table
 
 const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder("utf-8", { fatal: true });
+const textDecoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }); // keep a leading U+FEFF: it is data
 
 // Strings with lone surrogates aren't valid UTF-16; JSON keeps them, so we do too
 // by writing them as WTF-8 (UTF-8 that also allows encoded surrogates).
@@ -114,7 +114,7 @@ export class Writer {
 
   float(v) {
     this.ensure(8);
-    f64[0] = v;
+    f64[0] = v + 0; // -0 → 0
     this.buf.set(f64b, this.pos);
     this.pos += 8;
   }
@@ -373,7 +373,7 @@ export class Writer {
     const raw = new Uint8Array(m * 8), xor = new Uint8Array(m * 8);
     let ph = 0, pl = 0;
     for (let i = 0; i < m; i++) {
-      f64[0] = vals[i];
+      f64[0] = vals[i] + 0; // -0 → 0, as everywhere else
       const hi = f64w[1], lo = f64w[0];
       const h = (hi ^ ph) >>> 0, l = (lo ^ pl) >>> 0;
       ph = hi; pl = lo;

@@ -61,13 +61,15 @@
     "test:browsers": "node test/browsers.mjs",
     "bench": "node bench/perf.mjs",
     "build": "cp types/index.d.ts types/index.d.cts && esbuild src/index.js --bundle --format=cjs --platform=neutral --external:fflate --outfile=dist/index.cjs --log-level=warning",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "test:fuzz": "FUZZ_RUNS=20000 node --test test/property.test.js"
   },
   "dependencies": {
     "fflate": "^0.8.3"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
+    "fast-check": "^4.10.3",
     "jsoncrush": "^1.1.8",
     "lz-string": "^1.5.0",
     "lzma": "^2.3.2",

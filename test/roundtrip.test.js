@@ -19,7 +19,7 @@ test("random JSON round-trips (2000 cases × 2 targets)", () => {
 
 test("edge values", () => {
   const cases = [null, 0, -0, 1, -1, 191, 192, 2 ** 52, 2 ** 53, -(2 ** 60), 1e300, 5e-324, NaN, Infinity, -Infinity,
-    0.1, 0.30000000000000004, "", "a", "😀", [], {}, [[]], [{}], [{}, {}], [{ a: 1 }, { b: 2 }], [{ a: -0 }, { a: 0 }],
+    0.1, 0.30000000000000004, "", "a", "😀", "\uFEFF", "\uFEFFabc", ["\uFEFFx", "\uFEFFx"], [{ "\uFEFF": 0 }, { "\uFEFF": 0 }], [], {}, [[]], [{}], [{}, {}], [{ a: 1 }, { b: 2 }], [{ a: -0 }, { a: 0 }],
     [{ a: [1] }, { a: [2] }], [{ a: null }, { a: null }], [{ a: 1 }, 5], { "": 1, "__proto__x": 2 }];
   // -0 becomes 0 (as in JSON); NaN/±Infinity are kept (JSON would turn them into null)
   const norm = (v) => JSON.parse(JSON.stringify(v, (k, x) => (Object.is(x, -0) ? 0 : x)), (k, x) => x);

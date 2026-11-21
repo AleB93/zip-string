@@ -193,7 +193,7 @@ Encryption uses the platform's Web Crypto (browsers, and Node ≥ 20). There's n
 ## Compatibility
 
 - **Runtimes:** Node ≥ 18 and modern browsers (ES2022: `Object.hasOwn`, `TextDecoder`). Uses native base64 and `String.prototype.isWellFormed` when present, with fallbacks otherwise. Encryption needs Web Crypto: Node ≥ 20, and browsers on `https://` or `localhost`.
-- **Tested in:** Node 18–26 (CI) and Google Chrome 157 and 143 (`npm run test:browsers`), including encryption in both directions between Node and the browser. Firefox and Safari aren't covered by the automated tests yet.
+- **Tested in:** Node 18–26 (CI) and Google Chrome 157 and 143 (`npm run test:browsers`), including encryption in both directions between Node and the browser. Every public function also has property-based tests ([fast-check](https://github.com/dubzzz/fast-check)): random values, tables, options, keys and passwords must round-trip, and random or corrupted strings must be rejected cleanly. The unit tests cover 100% of lines. Firefox and Safari aren't covered by the automated tests yet.
 - **Data:** follows `JSON.stringify` semantics (`toJSON()` is called; `undefined` and functions are dropped), with two differences: `NaN` and `±Infinity` are preserved, and `-0` becomes `0`. Strings containing unpaired surrogates (invalid UTF-16) are preserved exactly. `BigInt` throws.
 - **Safety:** keys named `__proto__` stay plain data and never change an object's prototype.
 
@@ -220,7 +220,8 @@ zip-string's code is original, but its techniques come from well-known formats:
 ## Development
 
 ```sh
-npm test                 # Node tests
+npm test                 # Node tests, incl. ~200 random cases per property
+npm run test:fuzz        # 20,000 random cases per property (about 2 minutes)
 npm run test:browsers    # Chrome (needs: python3 -m http.server 8765)
 npm run bench            # benchmark
 npm run build            # CommonJS bundle → dist/

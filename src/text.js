@@ -38,7 +38,12 @@ export function fromBase64url(s, native = hasNativeBase64) {
     if (v < 0) throw new Error("zip-string: invalid character in data");
     if (v & (rem === 2 ? 15 : 3)) throw new Error("zip-string: invalid data (non-canonical ending)");
   }
-  if (native) return Uint8Array.fromBase64(s, { alphabet: "base64url", lastChunkHandling: "loose" });
+  if (native) {
+    const out = Uint8Array.fromBase64(s, { alphabet: "base64url", lastChunkHandling: "loose" });
+    // the native decoder skips ASCII whitespace; a strict decoder must not
+    if (out.length !== (s.length * 3) >> 2) throw new Error("zip-string: invalid character in data");
+    return out;
+  }
   const out = new Uint8Array((s.length * 3) >> 2);
   let buf = 0, bits = 0, o = 0;
   for (let i = 0; i < s.length; i++) {
