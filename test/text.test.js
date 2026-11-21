@@ -29,3 +29,15 @@ test("invalid input is rejected, not silently decoded", () => {
   assert.throws(() => fromBase64url("ab%c", false));
   assert.throws(() => fromBase77("ab#c"));
 });
+
+test("base77: out-of-range (non-canonical) strings are rejected", () => {
+  // 41 chars of the highest digit encode a value larger than 2^256
+  assert.throws(() => fromBase77("?".repeat(41)), /out of range/);
+  // shortest partial block: 2 chars → 1 byte; "??" = 77² - 1 > 255
+  assert.throws(() => fromBase77("??"), /out of range/);
+  // every valid encoding still decodes (spot check)
+  for (let n = 1; n <= 64; n++) {
+    const b = new Uint8Array(n).fill(255);
+    assert.deepEqual(fromBase77(toBase77(b)), b);
+  }
+});

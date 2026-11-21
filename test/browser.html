@@ -9,12 +9,12 @@
 <pre id="status">loading…</pre>
 <script type="module">
 // Exposes the library to the Playwright runner (test/browsers.mjs).
-import { encode, decode, createDictionary } from "../src/index.js";
+import { encode, decode, createDictionary, encrypt, decrypt, generateKey, isEncrypted } from "../src/index.js";
 import { setCodegen } from "../src/binary.js";
 import { gen, reseed } from "./gen.js";
 import { makeDatasets } from "../bench/data.js";
 
-window.zipString = { encode, decode, createDictionary, setCodegen, gen, reseed, makeDatasets };
+window.zipString = { encode, decode, createDictionary, encrypt, decrypt, generateKey, isEncrypted, setCodegen, gen, reseed, makeDatasets };
 window.features = {
   userAgent: navigator.userAgent,
   nativeBase64: typeof Uint8Array.prototype.toBase64 === "function",

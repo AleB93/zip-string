@@ -132,7 +132,10 @@ export function fromBase77(s) {
         carry = Math.floor(cur / L);
         limbs[j] = cur - carry * L;
       }
+      if (carry !== 0) throw new Error("zip-string: invalid data (value out of range)");
     }
+    // reject non-canonical input: the top limb must fit in its partial width
+    if (limbs[0] >= 2 ** (8 * (len % 3 || 3))) throw new Error("zip-string: invalid data (value out of range)");
     // 24-bit limbs → big-endian bytes
     let take = len % 3 || 3;
     for (let j = 0; j < nl; j++) {

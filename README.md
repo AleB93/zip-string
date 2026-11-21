@@ -12,6 +12,7 @@ const rows = decode(location.hash.slice(1));               // back, exactly
 - **Small**: 3–4× shorter URLs than lz-string or plain deflate on tabular data, and smallest on every dataset tested (see [Benchmarks](#benchmarks)).
 - **Fast**: synchronous; encodes 5,000 rows in about 2 ms and decodes them in under 1 ms.
 - **Exact**: lossless round trips, verified on thousands of random documents in Node and Chrome.
+- **Optional encryption**: AES-256-GCM with a password or a random key. Without the secret, a leaked link reveals nothing, and any modification is detected.
 - **Tiny footprint**: one dependency ([fflate](https://github.com/101arrowz/fflate)); ESM + CommonJS + TypeScript types.
 
 > "zip" is figurative: the format is deflate inside a custom binary encoding, not a `.zip` file.
@@ -62,6 +63,24 @@ decode(s, { dictionary: dict });
 
 The dictionary is a `Uint8Array`. To store it as text, use for example `Buffer.from(dict).toString("base64")`. A string encoded with a dictionary fails loudly if it's decoded without one or with a different one.
 
+### Encrypt a link so only the right people can read it
+
+```js
+import { encrypt, decrypt } from "zip-string";
+
+// with a password
+const link = await encrypt(data, { password: "correct horse battery staple" });
+const back = await decrypt(link, { password: "correct horse battery staple" });
+
+// or with a random key (stronger than any password people can remember)
+import { generateKey } from "zip-string";
+const key = generateKey();                 // 43 characters, e.g. "q3J…Zk"
+const link2 = await encrypt(data, { key });
+const back2 = await decrypt(link2, { key });
+```
+
+Send the link and the password or key through **different channels** (for example, the link by email and the password by chat or in person). Anyone who gets both can read the data; anyone with only the link learns nothing but its approximate size. See [Security](#security).
+
 ## API
 
 ### `encode(data, options?) → string`
@@ -84,6 +103,29 @@ Decodes `location.hash` (browser), handling any percent-escaping added by browse
 ### `createDictionary(...samples) → Uint8Array`
 
 Builds a dictionary from sample values shaped like your data.
+
+### `encrypt(data, options) → Promise<string>`
+
+Compresses, then encrypts with AES-256-GCM. Pass exactly one of:
+
+| option | |
+|---|---|
+| `password` | At least 8 characters. The key is derived with PBKDF2-SHA256 (600,000 iterations by default) and a random salt. |
+| `key` | 32 bytes: a string from `generateKey()`, a `Uint8Array`, or an AES-GCM `CryptoKey`. |
+
+Also accepts `iterations` (password only, 100,000 to 10,000,000) and every `encode` option. Adds about 40 characters with a key and 60 with a password.
+
+### `decrypt(str, options) → Promise<value>`
+
+Options: `password` or `key`, plus `dictionary` if one was used. Rejects with "cannot decrypt" if the secret is wrong or the string was modified in any way.
+
+### `generateKey() → string`
+
+A new random 256-bit key (43 URL-safe characters).
+
+### `isEncrypted(str) → boolean`
+
+Tells an encrypted string from a plain one, for example to decide whether to show a password prompt.
 
 ### `setCodegen(on)`
 
@@ -117,10 +159,22 @@ Times are for encoding. Decoding the 100k-row table takes 22 ms (lz-string: 218 
 
 How much smaller your URLs get depends on your data: tables with numbers, timestamps and repeated values compress best, and short documents full of unique random strings gain little. Run `npm run bench` and `node bench/compare.mjs` to reproduce these numbers.
 
+## Security
+
+Encryption uses the platform's Web Crypto (browsers, and Node ≥ 20). There's no custom cryptography and no extra dependency.
+
+- **Confidentiality and integrity:** AES-256-GCM. Changing, removing or adding a single character makes decryption fail instead of returning altered data. The format flags and key-derivation settings are authenticated too.
+- **Passwords:** PBKDF2-SHA256 with a random 16-byte salt for every link and 600,000 iterations (the OWASP recommendation). That takes about 50–80 ms on a laptop, which makes guessing millions of passwords slow. A weak password is still guessable, so use a long passphrase or `generateKey()`.
+- **Fresh randomness:** every call uses a new random IV (and salt), so encrypting the same data twice gives two different strings.
+- **Malicious links:** `decrypt` refuses links that request more than 10 million iterations, so a crafted link can't freeze the page.
+- **What is not hidden:** the link's length, which reveals the approximate size of the data. Data is compressed before it's encrypted, so if an attacker can mix their own text into data alongside a secret and watch the resulting length many times, they could learn something about the secret (the CRIME/BREACH technique). That doesn't apply to links you create from your own data.
+- **Where secrets live:** zip-string never stores or sends a key or password. If you put the key in the same link (for example `#data.key`), anyone with the link can read it. That only protects against servers and logs that never see the fragment, which is the model Excalidraw and Firefox Send use.
+- **Browser requirement:** Web Crypto only exists in secure contexts (`https://` or `localhost`). Elsewhere, `encrypt` and `decrypt` throw a clear error.
+
 ## Compatibility
 
-- **Runtimes:** Node ≥ 18 and modern browsers (ES2022: `Object.hasOwn`, `TextDecoder`). Uses native base64 and `String.prototype.isWellFormed` when present, with fallbacks otherwise.
-- **Tested in:** Node 26, Google Chrome 157 and Chrome 143 (`npm run test:browsers`). Firefox and Safari aren't covered by the automated tests yet.
+- **Runtimes:** Node ≥ 18 and modern browsers (ES2022: `Object.hasOwn`, `TextDecoder`). Uses native base64 and `String.prototype.isWellFormed` when present, with fallbacks otherwise. Encryption needs Web Crypto: Node ≥ 20, and browsers on `https://` or `localhost`.
+- **Tested in:** Node 18–26 (CI) and Google Chrome 157 and 143 (`npm run test:browsers`), including encryption in both directions between Node and the browser. Firefox and Safari aren't covered by the automated tests yet.
 - **Data:** follows `JSON.stringify` semantics (`toJSON()` is called; `undefined` and functions are dropped), with two differences: `NaN` and `±Infinity` are preserved, and `-0` becomes `0`. Strings containing unpaired surrogates (invalid UTF-16) are preserved exactly. `BigInt` throws.
 - **Safety:** keys named `__proto__` stay plain data and never change an object's prototype.
 

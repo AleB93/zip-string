@@ -5,7 +5,7 @@ import { chromium } from "playwright-core";
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { isDeepStrictEqual } from "node:util";
-import { encode, decode, createDictionary } from "../src/index.js";
+import { encode, decode, createDictionary, encrypt, decrypt, generateKey } from "../src/index.js";
 import { gen, reseed } from "./gen.js";
 import { makeDatasets } from "../bench/data.js";
 
@@ -90,6 +90,32 @@ for (const t of targets.filter((t) => !only || t.name.includes(only))) {
   });
   for (const [k, ok] of Object.entries(special)) check(ok, `${t.name}: ${k}`);
   console.log("special cases: " + Object.entries(special).map(([k, ok]) => `${k} ${ok ? "✓" : "✗"}`).join(" · "));
+
+  // 2b. encryption: browser ⇄ Node in both directions, wrong credentials rejected
+  const secret = { note: "confidential", rows: values.slice(0, 50) };
+  const key = generateKey(), pw = "browser-test-password";
+  const nodeKey = await encrypt(secret, { key }), nodePw = await encrypt(secret, { password: pw, iterations: 100_000 });
+  const enc = await page.evaluate(async ({ secret, key, pw, nodeKey, nodePw }) => {
+    const P = window.zipString, r = {};
+    // compare with the plain (unencrypted) pipeline: encryption must add no difference
+    const expected = JSON.stringify(P.decode(P.encode(secret)));
+    const same = (a) => JSON.stringify(a) === expected;
+    r.webCrypto = !!globalThis.crypto?.subtle;
+    r.readsNodeKey = same(await P.decrypt(nodeKey, { key }));
+    r.readsNodePassword = same(await P.decrypt(nodePw, { password: pw }));
+    r.rejectsWrongPassword = await P.decrypt(nodePw, { password: pw + "x" }).then(() => false, () => true);
+    r.rejectsWrongKey = await P.decrypt(nodeKey, { key: P.generateKey() }).then(() => false, () => true);
+    const t0 = performance.now();
+    r.browserPw = await P.encrypt(secret, { password: pw });
+    r.pbkdfMs = Math.round(performance.now() - t0);
+    r.browserKey = await P.encrypt(secret, { key, target: "query" });
+    return r;
+  }, { secret, key, pw, nodeKey, nodePw });
+  enc.nodeReadsBrowserPassword = isDeepStrictEqual(await decrypt(enc.browserPw, { password: pw }), secret);
+  enc.nodeReadsBrowserKey = isDeepStrictEqual(await decrypt(enc.browserKey, { key }), secret);
+  const encChecks = ["webCrypto", "readsNodeKey", "readsNodePassword", "rejectsWrongPassword", "rejectsWrongKey", "nodeReadsBrowserPassword", "nodeReadsBrowserKey"];
+  for (const k of encChecks) check(enc[k] === true, `${t.name}: encryption ${k}`);
+  console.log("encryption: " + encChecks.map((k) => `${k} ${enc[k] ? "✓" : "✗"}`).join(" · ") + ` · password key derivation ${enc.pbkdfMs} ms`);
 
   // 3. benchmark (batched so coarse browser timers still give real numbers)
   const bench = await page.evaluate(() => {

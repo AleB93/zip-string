@@ -60,7 +60,7 @@
     "test": "node --test test/*.test.js",
     "test:browsers": "node test/browsers.mjs",
     "bench": "node bench/perf.mjs",
-    "build": "esbuild src/index.js --bundle --format=cjs --platform=neutral --external:fflate --outfile=dist/index.cjs --log-level=warning",
+    "build": "cp types/index.d.ts types/index.d.cts && esbuild src/index.js --bundle --format=cjs --platform=neutral --external:fflate --outfile=dist/index.cjs --log-level=warning",
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {

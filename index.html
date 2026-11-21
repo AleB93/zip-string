@@ -16,6 +16,7 @@
   th, td { border-bottom:1px solid var(--line); padding:4px 8px; text-align:left; white-space:nowrap; }
   .wrap { overflow:auto; max-height:60vh; }
   svg { width:100%; height:120px; display:block; }
+  input[type=password] { font:inherit; padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
   #link { word-break:break-all; font:11px ui-monospace, monospace; max-height:4.5em; overflow:hidden; }
 </style>
 </head>
@@ -25,10 +26,17 @@
 <section id="maker">
   <p class="muted">Paste JSON (ideally an array of objects), get a URL whose <code>#fragment</code> carries all of it.</p>
   <textarea id="input"></textarea>
+  <p><label>Password (optional — encrypts the link): <input id="password" type="password" autocomplete="new-password" placeholder="at least 8 characters"></label></p>
   <button id="sample">Load 5,000-row sample</button>
   <button id="make">Create link</button>
   <div class="stats" id="stats"></div>
   <div id="link"></div>
+</section>
+
+<section id="unlock" hidden>
+  <p>🔒 This link is encrypted.</p>
+  <form id="unlockForm"><input id="unlockPw" type="password" autocomplete="current-password" placeholder="Password"> <button>Open</button></form>
+  <p class="muted" id="unlockMsg"></p>
 </section>
 
 <section id="view" hidden>
@@ -40,7 +48,7 @@
 
 <script type="importmap">{ "imports": { "fflate": "./node_modules/fflate/esm/browser.js" } }</script>
 <script type="module">
-import { encode, decode } from "./src/index.js";
+import { encode, decode, encrypt, decrypt, isEncrypted } from "./src/index.js";
 const $ = (id) => document.getElementById(id);
 const kb = (n) => (n / 1024).toFixed(1) + " KB";
 
@@ -56,7 +64,11 @@ $("sample").onclick = () => {
 
 $("make").onclick = async () => {
   const json = $("input").value;
-  const s = encode(JSON.parse(json), { target: "hash" });
+  const password = $("password").value;
+  let s;
+  try {
+    s = password ? await encrypt(JSON.parse(json), { password }) : encode(JSON.parse(json));
+  } catch (e) { $("stats").textContent = e.message; return; }
   const url = location.origin + location.pathname + "#" + s;
   $("stats").textContent = `JSON ${kb(json.length)} → URL ${kb(url.length)} (${(json.length / url.length).toFixed(1)}× smaller)`;
   $("link").innerHTML = `<a href="${url}">${url}</a>`;
@@ -65,16 +77,33 @@ $("make").onclick = async () => {
 
 $("edit").onclick = () => { location.hash = ""; };
 
+$("unlockForm").onsubmit = async (e) => {
+  e.preventDefault();
+  $("unlockMsg").textContent = "Decrypting…";
+  const s = decodeURIComponent(location.hash.slice(1));
+  try {
+    const t0 = performance.now();
+    const data = await decrypt(s, { password: $("unlockPw").value });
+    $("unlock").hidden = true; $("unlockPw").value = "";
+    show(data, performance.now() - t0, "decrypted and decoded");
+  } catch (err) { $("unlockMsg").textContent = err.message; }
+};
+
 async function render() {
   const s = decodeURIComponent(location.hash.slice(1));
-  $("maker").hidden = !!s; $("view").hidden = !s;
+  $("maker").hidden = !!s; $("view").hidden = true; $("unlock").hidden = true;
   if (!s) return;
+  if (isEncrypted(s)) { $("unlock").hidden = false; $("unlockMsg").textContent = ""; $("unlockPw").focus(); return; }
   const t0 = performance.now();
-  const data = decode(s);
-  const ms = (performance.now() - t0).toFixed(0);
+  show(decode(s), performance.now() - t0, "decoded");
+}
+
+function show(data, elapsed, verb) {
+  $("view").hidden = false;
+  const ms = elapsed.toFixed(0);
   const rows = Array.isArray(data) ? data : [data];
   const keys = [...new Set(rows.flatMap((r) => (r && typeof r === "object" ? Object.keys(r) : ["value"])))];
-  $("viewStats").textContent = `${rows.length.toLocaleString()} rows decoded from a ${kb(location.href.length)} URL in ${ms} ms`;
+  $("viewStats").textContent = `${rows.length.toLocaleString()} rows ${verb} from a ${kb(location.href.length)} URL in ${ms} ms`;
 
   // first numeric column (not id-like) as a line chart
   const numKey = keys.find((k) => k !== "id" && rows.every((r) => typeof r[k] === "number") && !/^(ts|time|date)/i.test(k));
